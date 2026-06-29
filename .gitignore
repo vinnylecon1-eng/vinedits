@@ -40,6 +40,10 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
+# Database
+*.db
+*.db-journal
+
 # Video processing binaries (large - download separately)
 ffmpeg.exe
 yt-dlp.exe
@@ -51,3 +55,5 @@ videos/
 .env.test
 .env.production.local
 .env.development.local
+
+/lib/generated/prisma

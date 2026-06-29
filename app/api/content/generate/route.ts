@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { generateShortsForUrl, generateOptimalSchedule } from '@/lib/generate'
-import { downloadVideo, splitIntoClips, cleanupVideo, getClipPath } from '@/lib/video'
+import { downloadVideo, splitIntoClips, cleanupVideo } from '@/lib/video'
 import fs from 'fs'
 import path from 'path'
 
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const allItems: any[] = []
+    const allScheduleEntries: any[] = []
 
     for (let i = 0; i < validUrls.length; i++) {
       const url = validUrls[i]
@@ -70,39 +71,50 @@ export async function POST(req: NextRequest) {
         const id = short._tempId || Math.random().toString(36).substring(2, 15)
         delete short._tempId
 
-        const item = {
-          id,
-          ...short,
-          hasVideo: clipFiles.length > 0,
-          videoUrl: clipFiles.length > 0 ? `/api/videos/${id}` : null,
-          status: 'scheduled' as const,
-          scheduledAt: null,
-          createdAt: new Date().toISOString(),
-          userId: user.id,
-        }
-        db.content.push(item)
+        const created = await prisma.generatedContent.create({
+          data: {
+            id,
+            userId: user.id,
+            ...short,
+            hooks: JSON.stringify(short.hooks),
+            hashtags: JSON.stringify(short.hashtags),
+            hasVideo: clipFiles.length > 0,
+            videoUrl: clipFiles.length > 0 ? `/api/videos/${id}` : null,
+            status: 'scheduled',
+            scheduledAt: null,
+          },
+        })
+
+        const item = { ...created, hooks: JSON.parse(created.hooks), hashtags: JSON.parse(created.hashtags), createdAt: created.createdAt.toISOString(), scheduledAt: created.scheduledAt }
         allItems.push(item)
       }
     }
 
     const scheduleSlots = generateOptimalSchedule(allItems.length)
-    allItems.forEach((item, idx) => {
+    for (let idx = 0; idx < allItems.length; idx++) {
+      const item = allItems[idx]
       item.scheduledAt = scheduleSlots[idx] || null
 
-      db.scheduledPosts.push({
-        id: Math.random().toString(36).substring(2, 15),
-        contentId: item.id,
-        seoTitle: item.seoTitle,
-        hashtags: item.hashtags,
-        platform: item.platform,
-        niche: item.niche,
-        sourceUrl: item.sourceUrl,
-        scheduledAt: scheduleSlots[idx] || new Date().toISOString(),
-        status: 'pending' as const,
-        createdAt: new Date().toISOString(),
-        userId: user.id,
+      await prisma.generatedContent.update({
+        where: { id: item.id },
+        data: { scheduledAt: item.scheduledAt },
       })
-    })
+
+      const post = await prisma.scheduledPost.create({
+        data: {
+          userId: user.id,
+          contentId: item.id,
+          seoTitle: item.seoTitle,
+          hashtags: JSON.stringify(item.hashtags),
+          platform: item.platform,
+          niche: item.niche,
+          sourceUrl: item.sourceUrl,
+          scheduledAt: scheduleSlots[idx] || new Date().toISOString(),
+          status: 'pending',
+        },
+      })
+      allScheduleEntries.push(post)
+    }
 
     return NextResponse.json({
       message: `${allItems.length} shorts generated and auto-scheduled`,

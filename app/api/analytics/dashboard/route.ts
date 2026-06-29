@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
     const auth = req.headers.get('authorization')
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const user = verifyToken(auth.split(' ')[1])
+    verifyToken(auth.split(' ')[1])
 
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     const daily = days.map((date) => ({
@@ -18,8 +18,12 @@ export async function GET(req: NextRequest) {
       saves: Math.floor(Math.random() * 400) + 20,
     }))
 
-    const userContent = db.content.filter((c: any) => c.userId === user.id)
-    const userPosts = db.scheduledPosts.filter((p: any) => p.userId === user.id)
+    const contentCount = await prisma.generatedContent.count()
+    const postsCount = await prisma.scheduledPost.count()
+    const topContent = await prisma.generatedContent.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    })
 
     return NextResponse.json({
       daily,
@@ -29,16 +33,16 @@ export async function GET(req: NextRequest) {
         totalComments: daily.reduce((s, d) => s + d.comments, 0),
         totalShares: daily.reduce((s, d) => s + d.shares, 0),
         totalSaves: daily.reduce((s, d) => s + d.saves, 0),
-        contentGenerated: userContent.length,
-        postsScheduled: userPosts.length,
+        contentGenerated: contentCount,
+        postsScheduled: postsCount,
         avgEngagementRate: +(Math.random() * 8 + 3).toFixed(1),
       },
-      topContent: userContent.slice(0, 5).map((c: any) => ({
+      topContent: topContent.map((c) => ({
         seoTitle: c.seoTitle,
         views: Math.floor(Math.random() * 10000) + 1000,
         likes: Math.floor(Math.random() * 1000) + 100,
         platform: c.platform,
-        date: c.createdAt,
+        date: c.createdAt.toISOString(),
       })),
       platformBreakdown: [
         { platform: 'Instagram', percentage: 38 },

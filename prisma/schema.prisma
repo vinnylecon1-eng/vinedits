@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  name         String
+  password     String
+  subscription String           @default("free")
+  createdAt    DateTime         @default(now())
+  content      GeneratedContent[]
+  scheduledPosts ScheduledPost[]
+}
+
+model GeneratedContent {
+  id               String   @id @default(cuid())
+  userId           String
+  sourceUrl        String
+  platform         String
+  niche            String
+  seoTitle         String
+  hooks            String   @default("[]")
+  description      String
+  caption          String
+  hashtags         String   @default("[]")
+  thumbnailIdea    String
+  clipDuration     String
+  sourceDuration   Int
+  totalShorts      Int
+  shortIndex       Int
+  watermarkRemoved Boolean  @default(false)
+  hasVideo         Boolean  @default(false)
+  videoUrl         String?
+  status           String   @default("draft")
+  scheduledAt      String?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id])
+}
+
+model ScheduledPost {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  seoTitle    String
+  hashtags    String   @default("[]")
+  platform    String
+  niche       String?
+  sourceUrl   String
+  scheduledAt String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
