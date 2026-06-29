@@ -56,12 +56,23 @@ const defaultHooks = [
 ]
 
 const descriptionTemplates = [
-  `In this clip, I break down the exact strategy that took me from 0 to results. Whether you're a beginner or experienced, these insights will transform your approach. Watch until the end for the game-changing tip.`,
-  `This is the most requested topic. I'm sharing the complete framework that helped me achieve real results. Save this for later — you'll want to reference these steps.`,
-  `After months of testing, I finally cracked the code. Here's everything you need to know about [topic] in under 60 seconds. Share this with someone who needs to hear it.`,
-  `The algorithm changed again, and most people are getting it wrong. Here's what's actually working right now. Follow for more insights.`,
-  `This clip breaks down the proven system that has helped thousands get results. Step 3 is the one most people overlook, but it's where the magic happens.`,
-  `Stop scrolling and take notes. This is the exact blueprint I followed. Save this, implement it, and thank me later.`,
+  `In this clip, I break down the exact strategy that took me from 0 to results. Whether you're just starting out or you've been at it for a while, these insights will transform how you think about it. Stick around till the end — the game-changing tip is worth it.`,
+  `This is hands down the most requested topic. I'm sharing the complete framework that helped me get real results. Save this one — you'll want to come back to these steps later.`,
+  `After months of testing and tweaking, I finally cracked the code. Here's everything you need to know in under 60 seconds. Tag someone who needs to see this.`,
+  `The algorithm shifted again, and most people are getting it wrong. Here's what's actually working right now. Follow along for more real-talk insights.`,
+  `This clip breaks down a system that has helped hundreds of people get results. Step 3 is the one almost everyone overlooks, but honestly? That's where the real magic happens.`,
+  `Stop scrolling for a sec and take notes. This is the exact blueprint I followed. Save it, implement it, and come back to thank me later.`,
+]
+
+const captionTemplates = [
+  `This one's been sitting in my drafts for a while, but I think you're ready for it. Drop a comment if this hits home.`,
+  `Someone asked me about this the other day and I realized I never properly explained it. Here's my take.`,
+  `Not gonna lie, this took me way too long to figure out. Hope it saves you the headache. Save this for later!`,
+  `Been getting a lot of DMs about this, so here you go. Let me know what you think in the comments.`,
+  `Honestly wish someone had told me this sooner. Share this with someone who needs to hear it today.`,
+  `This is one of those things that seems obvious once you see it, but most people never do. Mind-blowing stuff.`,
+  `I've been testing this for the past month and the results are actually insane. Here's the breakdown.`,
+  `If you take nothing else from my content, let it be this. Game-changer.`,
 ]
 
 const hashtagSets = [
@@ -80,7 +91,7 @@ const seoTitleTemplates = [
   'How I Got [result] With This Method',
 ]
 
-const shortDurations = ['15-20 seconds', '20-25 seconds', '25-30 seconds', '30-35 seconds', '35-40 seconds', '40-45 seconds', '45-50 seconds']
+const shortDurations = ['18-22 seconds', '22-28 seconds', '28-35 seconds', '35-40 seconds', '40-48 seconds', '48-55 seconds']
 
 export function extractDomain(url: string): string {
   try {
@@ -143,6 +154,11 @@ function generateSeoTitle(niche: string, index: number): string {
     .replace('[result]', pick(results))
 }
 
+function generateCaption(niche: string): string {
+  const template = pick(captionTemplates)
+  return template
+}
+
 export function generateShortsForUrl(url: string, durationMinutes: number, removeWatermark: boolean) {
   const platform = extractDomain(url)
   const niche = detectNiche(url)
@@ -153,6 +169,7 @@ export function generateShortsForUrl(url: string, durationMinutes: number, remov
     const seoTitle = generateSeoTitle(niche, i)
     const hooks = generateHooks(niche, 3)
     const description = pick(descriptionTemplates).replace('[topic]', niche.toLowerCase())
+    const caption = generateCaption(niche)
     const rawHashtags = [...new Set([...pick(hashtagSets), `#${niche.toLowerCase()}`, `#${platform.toLowerCase()}`, '#shorts', '#viralvideo'])]
     const hashtags = pickN(rawHashtags, 12)
 
@@ -168,6 +185,7 @@ export function generateShortsForUrl(url: string, durationMinutes: number, remov
       seoTitle,
       hooks,
       description,
+      caption,
       hashtags,
       thumbnailIdea,
       clipDuration: pick(shortDurations),

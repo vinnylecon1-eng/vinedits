@@ -14,6 +14,7 @@ export interface GeneratedContent {
   seoTitle: string
   hooks: string[]
   description: string
+  caption: string
   hashtags: string[]
   thumbnailIdea: string
   clipDuration: string

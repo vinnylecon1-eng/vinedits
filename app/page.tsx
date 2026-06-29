@@ -26,7 +26,7 @@ export default function Landing() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       login(data.token, data.user)
-      toast.success(isLogin ? 'Welcome back' : 'Account created')
+      toast.success(isLogin ? 'Good to see you again' : 'Welcome aboard')
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message)
@@ -36,14 +36,14 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-bg">
-      <nav className="border-b border-border px-6 py-3">
+    <div className="min-h-screen bg-bg flex flex-col">
+      <nav className="border-b border-border px-4 sm:px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">V</span>
             </div>
-            <span className="font-semibold text-sm">ViralAgent</span>
+            <span className="font-semibold text-sm">Vinedits</span>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => { setIsLogin(true); setError('') }} className="text-sm text-text-secondary hover:text-text-primary transition-colors">Sign in</button>
@@ -52,51 +52,53 @@ export default function Landing() {
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-20 lg:py-32">
-        <div className="max-w-3xl mx-auto text-center mb-16">
-          <h1 className="text-4xl lg:text-5xl font-bold tracking-tight mb-4">
-            Turn any video link into<br />
-            <span className="text-accent">viral shorts</span>
-          </h1>
-          <p className="text-text-secondary text-lg max-w-xl mx-auto">
-            Paste up to 5 links. Get SEO-optimized titles, hooks, descriptions, and hashtags. Auto-scheduled at peak times.
-          </p>
-        </div>
+      <div className="flex-1 flex items-center justify-center px-4 py-12 sm:py-20">
+        <div className="w-full max-w-6xl mx-auto">
+          <div className="max-w-2xl mx-auto text-center mb-10 sm:mb-16">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4 leading-tight">
+              Turn any video into
+              <span className="text-accent block sm:inline"> viral shorts</span>
+            </h1>
+            <p className="text-text-secondary text-base sm:text-lg max-w-lg mx-auto leading-relaxed">
+              Drop your links, pick your niche, and let the magic happen. Titles, hooks, captions, and hashtags — all auto-generated and scheduled at the best times.
+            </p>
+          </div>
 
-        <div className="max-w-sm mx-auto">
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold mb-1">{isLogin ? 'Welcome back' : 'Create account'}</h2>
-            <p className="text-xs text-text-secondary mb-5">{isLogin ? 'Sign in to your workspace' : 'Start creating viral content'}</p>
+          <div className="max-w-sm mx-auto">
+            <div className="card p-5 sm:p-6">
+              <h2 className="text-lg font-semibold mb-1">{isLogin ? 'Welcome back' : 'Join the crew'}</h2>
+              <p className="text-xs text-text-secondary mb-5">{isLogin ? 'Sign in to pick up where you left off' : 'No credit card needed. Start creating in minutes.'}</p>
 
-            {error && <div className="mb-4 p-2.5 bg-error/10 border border-error/20 rounded-md text-xs text-error">{error}</div>}
+              {error && <div className="mb-4 p-2.5 bg-error/10 border border-error/20 rounded-md text-xs text-error">{error}</div>}
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              {!isLogin && (
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                {!isLogin && (
+                  <div>
+                    <label className="label">Name</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Your name" />
+                  </div>
+                )}
                 <div>
-                  <label className="label">Name</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Your name" />
+                  <label className="label">Email</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="you@example.com" required />
                 </div>
-              )}
-              <div>
-                <label className="label">Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="you@example.com" required />
-              </div>
-              <div>
-                <label className="label">Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="••••••••" required minLength={6} />
-              </div>
-              <button type="submit" disabled={loading} className="btn-primary w-full text-sm">
-                {loading ? <><span className="spinner" /> Processing...</> : isLogin ? 'Sign in' : 'Create account'}
-              </button>
-            </form>
-
-            <div className="mt-5 text-center">
-              <p className="text-xs text-text-tertiary">
-                {isLogin ? "Don't have an account? " : 'Already have one? '}
-                <button onClick={() => { setIsLogin(!isLogin); setError('') }} className="text-accent hover:underline">
-                  {isLogin ? 'Sign up' : 'Sign in'}
+                <div>
+                  <label className="label">Password</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="At least 6 characters" required minLength={6} />
+                </div>
+                <button type="submit" disabled={loading} className="btn-primary w-full text-sm">
+                  {loading ? <><span className="spinner" /> Hang tight...</> : isLogin ? 'Sign in' : 'Create account'}
                 </button>
-              </p>
+              </form>
+
+              <div className="mt-5 text-center">
+                <p className="text-xs text-text-tertiary">
+                  {isLogin ? "Don't have an account? " : 'Already have one? '}
+                  <button onClick={() => { setIsLogin(!isLogin); setError('') }} className="text-accent hover:underline">
+                    {isLogin ? 'Create one' : 'Sign in'}
+                  </button>
+                </p>
+              </div>
             </div>
           </div>
         </div>
