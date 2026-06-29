@@ -22,6 +22,8 @@ export interface GeneratedContent {
   totalShorts: number
   shortIndex: number
   watermarkRemoved: boolean
+  hasVideo: boolean
+  videoUrl: string | null
   status: 'draft' | 'scheduled' | 'posted'
   scheduledAt: string | null
   createdAt: string

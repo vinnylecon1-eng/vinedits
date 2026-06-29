@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { User as UserIcon, Mail, Lock, Save, Loader, CreditCard } from 'lucide-react'
+import { User as UserIcon, Mail, Lock, Save, Loader, CreditCard, Shield, CalendarDays, Key } from 'lucide-react'
 import { toast } from 'sonner'
 import type { User } from '@/lib/types'
 
@@ -37,15 +37,33 @@ export default function SettingsPage() {
     finally { setSaving(false) }
   }
 
-  if (loading) return <div className="p-6 flex items-center justify-center h-64"><span className="spinner" /></div>
+  if (loading) return (
+    <div className="p-6 max-w-3xl mx-auto space-y-8">
+      <div className="skeleton h-8 w-48 mb-2" />
+      <div className="skeleton h-4 w-64 mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 skeleton h-80 rounded-xl" />
+        <div className="space-y-4">
+          <div className="skeleton h-48 rounded-xl" />
+          <div className="skeleton h-28 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-8">
-      <div><h1 className="heading-1">Settings</h1><p className="text-muted text-sm mt-1">Manage your account</p></div>
+      <div className="fade-in">
+        <h1 className="heading-1">Settings</h1>
+        <p className="text-muted text-sm mt-1">Manage your account</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 card p-5">
-          <h2 className="heading-2 mb-5">Account</h2>
+        <div className="lg:col-span-2 card p-5 fade-in">
+          <div className="flex items-center gap-2.5 mb-5">
+            <Shield size={16} className="text-accent" />
+            <h2 className="heading-2">Account</h2>
+          </div>
           <form onSubmit={handleSave} className="space-y-4">
             <div>
               <label className="label"><UserIcon size={13} className="inline mr-1" /> Full name</label>
@@ -57,7 +75,7 @@ export default function SettingsPage() {
             </div>
             <hr className="border-border" />
             <div>
-              <h3 className="text-sm font-medium mb-3"><Lock size={13} className="inline mr-1" /> Change password</h3>
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5"><Lock size={13} /> Change password</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label className="label">Current password</label><input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="input" placeholder="••••••••" /></div>
                 <div><label className="label">New password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input" placeholder="••••••••" minLength={6} /></div>
@@ -70,23 +88,48 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="card p-5">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><CreditCard size={15} className="text-accent" /> Plan</h3>
+          <div className="card p-5 fade-in" style={{ animationDelay: '0.1s' }}>
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <CreditCard size={15} className="text-accent" />
+              Plan
+            </h3>
             <p className="text-2xl font-bold mb-1 capitalize">{user?.subscription || 'Free'}</p>
             <p className="text-xs text-text-tertiary mb-4">
               {user?.subscription === 'free' ? '3 generations per month' : user?.subscription === 'pro' ? 'Unlimited generations' : 'Everything'}
             </p>
-            {user?.subscription === 'free' && <button className="btn-primary text-xs w-full">Upgrade to Pro</button>}
+            {user?.subscription === 'free' && (
+              <button className="btn-primary text-xs w-full bg-gradient-to-r from-accent to-indigo-500 hover:from-accent-hover hover:to-indigo-600 shadow-lg shadow-accent/20">
+                <SparklesIcon size={13} /> Upgrade to Pro
+              </button>
+            )}
           </div>
-          <div className="card p-5">
-            <h3 className="text-sm font-semibold mb-3">Account info</h3>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between"><span className="text-text-tertiary">Member since</span><span>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-text-tertiary">ID</span><span className="font-mono">{user?.id?.slice(0, 8)}</span></div>
+          <div className="card p-5 fade-in" style={{ animationDelay: '0.2s' }}>
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Key size={15} className="text-accent" />
+              Account info
+            </h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center py-1">
+                <span className="text-text-tertiary flex items-center gap-1.5"><CalendarDays size={12} /> Member since</span>
+                <span>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-t border-border-light">
+                <span className="text-text-tertiary flex items-center gap-1.5"><Key size={12} /> ID</span>
+                <span className="font-mono text-[10px]">{user?.id?.slice(0, 10)}..</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function SparklesIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z" />
+      <path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" />
+    </svg>
   )
 }

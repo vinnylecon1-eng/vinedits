@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, X, Link as LinkIcon, Sparkles, Check, Clock, ExternalLink, Hash, MessageSquare, Quote, Globe, Play, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, X, Link as LinkIcon, Sparkles, Check, Clock, ExternalLink, Hash, MessageSquare, Quote, Globe, Play, ChevronDown, Download, Video, Zap, Search, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import type { GeneratedContent } from '@/lib/types'
 import ReelPreview from '@/components/ReelPreview'
@@ -11,13 +11,63 @@ interface UrlEntry {
   duration: number
 }
 
+const genSteps = [
+  { id: 'analyze', label: 'Analyzing links', icon: Search },
+  { id: 'download', label: 'Downloading videos', icon: Download },
+  { id: 'process', label: 'Processing clips', icon: Video },
+  { id: 'generate', label: 'Generating metadata', icon: Sparkles },
+  { id: 'finalize', label: 'Finalizing content', icon: FileText },
+]
+
+function GenerationProgress({ step }: { step: number }) {
+  return (
+    <div className="w-full max-w-md mx-auto fade-in">
+      <div className="card p-5">
+        <div className="flex items-center gap-2.5 mb-4">
+          <span className="spinner" />
+          <span className="text-sm font-medium">Working on your shorts</span>
+        </div>
+        <div className="space-y-2.5">
+          {genSteps.map((s, i) => {
+            const Icon = s.icon
+            const isActive = i === step
+            const isDone = i < step
+            return (
+              <div key={s.id} className={`flex items-center gap-2.5 transition-all duration-300 ${isActive ? 'opacity-100' : isDone ? 'opacity-70' : 'opacity-30'}`}>
+                <div className={`step-dot ${isDone ? 'done' : isActive ? 'active' : 'pending'}`} />
+                <Icon size={13} className={isDone ? 'text-success' : isActive ? 'text-accent' : 'text-text-tertiary'} />
+                <span className={`text-xs ${isDone ? 'text-success' : isActive ? 'text-text-primary' : 'text-text-tertiary'}`}>{s.label}</span>
+                {isActive && <span className="ml-auto"><span className="spinner !w-3 !h-3" /></span>}
+                {isDone && <span className="ml-auto text-success"><Check size={12} /></span>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CreatePage() {
   const [entries, setEntries] = useState<UrlEntry[]>([{ url: '', duration: 15 }])
   const [removeWatermarks, setRemoveWatermarks] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [genStep, setGenStep] = useState(0)
   const [results, setResults] = useState<GeneratedContent[]>([])
   const [selectedShort, setSelectedShort] = useState<string | null>(null)
   const [showAllSources, setShowAllSources] = useState(true)
+  const genTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (generating) {
+      genTimerRef.current = setInterval(() => {
+        setGenStep((prev) => (prev < genSteps.length - 1 ? prev + 1 : prev))
+      }, 3000)
+    } else {
+      if (genTimerRef.current) clearInterval(genTimerRef.current)
+    }
+    return () => { if (genTimerRef.current) clearInterval(genTimerRef.current) }
+  }, [generating])
 
   const addUrl = () => { if (entries.length < 5) setEntries([...entries, { url: '', duration: 15 }]) }
   const removeUrl = (i: number) => { const e = entries.filter((_, idx) => idx !== i); setEntries(e.length ? e : [{ url: '', duration: 15 }]) }
@@ -31,6 +81,7 @@ export default function CreatePage() {
     if (filled.length === 0) { toast.error('Paste at least one video link'); return }
 
     setGenerating(true)
+    setGenStep(0)
     setResults([])
     setSelectedShort(null)
 
@@ -46,6 +97,7 @@ export default function CreatePage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
+      setGenStep(genSteps.length - 1)
       setResults(data.items)
       if (data.items.length > 0) setSelectedShort(data.items[0].id)
       const count = data.items.length
@@ -53,7 +105,7 @@ export default function CreatePage() {
     } catch (err: any) {
       toast.error(err.message)
     } finally {
-      setGenerating(false)
+      setTimeout(() => setGenerating(false), 600)
     }
   }
 
@@ -67,91 +119,97 @@ export default function CreatePage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="mb-6 sm:mb-8">
+      <div className="mb-6 sm:mb-8 fade-in">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Create content</h1>
-        <p className="text-sm text-text-secondary mt-1">Drop your video links below and we'll turn them into ready-to-post shorts.</p>
+        <p className="text-sm text-text-secondary mt-1">Drop your video links below and we&apos;ll turn them into ready-to-post shorts.</p>
       </div>
 
-      <div className="card p-4 sm:p-5 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold">Video links</h2>
-          {entries.length < 5 && (
-            <button onClick={addUrl} className="btn-ghost text-xs gap-1">
-              <Plus size={14} /> Add ({entries.length}/5)
-            </button>
-          )}
-        </div>
-
-        <div className="space-y-2.5">
-          {entries.map((entry, i) => (
-            <div key={i} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 group">
-              <span className="hidden sm:block text-xs text-text-tertiary w-5 text-right flex-shrink-0">{i + 1}.</span>
-              <div className="relative flex-1">
-                <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-                <input
-                  type="url"
-                  value={entry.url}
-                  onChange={(e) => updateUrl(i, e.target.value)}
-                  placeholder="Paste a video URL (Instagram, TikTok, YouTube...)"
-                  className="input pl-9 text-sm w-full"
-                />
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto sm:ml-0">
-                <input
-                  type="number"
-                  value={entry.duration}
-                  onChange={(e) => updateDuration(i, parseInt(e.target.value) || 1)}
-                  min={1}
-                  max={1440}
-                  className="input w-16 text-xs text-center"
-                />
-                <span className="text-[11px] text-text-tertiary w-10">min</span>
-              </div>
-              {entries.length > 1 && (
-                <button onClick={() => removeUrl(i)} className="p-1.5 hover:bg-surface-2 rounded transition-colors self-end sm:self-center">
-                  <X size={14} className="text-text-tertiary" />
+      {generating ? (
+        <GenerationProgress step={genStep} />
+      ) : (
+        <>
+          <div className="card p-4 sm:p-5 mb-8 fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold">Video links</h2>
+              {entries.length < 5 && (
+                <button onClick={addUrl} className="btn-ghost text-xs gap-1">
+                  <Plus size={14} /> Add ({entries.length}/5)
                 </button>
               )}
             </div>
-          ))}
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setRemoveWatermarks(!removeWatermarks)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-all ${
-              removeWatermarks
-                ? 'bg-accent/10 border-accent/20 text-accent'
-                : 'bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-border'
-            }`}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg>
-            Remove watermarks
-          </button>
-        </div>
+            <div className="space-y-2.5">
+              {entries.map((entry, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 group"
+                  style={{ animation: `fadeIn 0.3s ease-out ${i * 0.08}s both` }}
+                >
+                  <span className="hidden sm:block text-xs text-text-tertiary w-5 text-right flex-shrink-0">{i + 1}.</span>
+                  <div className="relative flex-1">
+                    <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                    <input
+                      type="url"
+                      value={entry.url}
+                      onChange={(e) => updateUrl(i, e.target.value)}
+                      placeholder="Paste a video URL (Instagram, TikTok, YouTube...)"
+                      className="input pl-9 text-sm w-full"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto sm:ml-0">
+                    <input
+                      type="number"
+                      value={entry.duration}
+                      onChange={(e) => updateDuration(i, parseInt(e.target.value) || 1)}
+                      min={1}
+                      max={1440}
+                      className="input w-16 text-xs text-center"
+                    />
+                    <span className="text-[11px] text-text-tertiary w-10">min</span>
+                  </div>
+                  {entries.length > 1 && (
+                    <button onClick={() => removeUrl(i)} className="p-1.5 hover:bg-surface-2 rounded transition-colors self-end sm:self-center">
+                      <X size={14} className="text-text-tertiary" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
 
-        <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p className="text-xs text-text-tertiary">
-            {validCount > 0
-              ? `${validCount} link${validCount > 1 ? 's' : ''} ready to go`
-              : 'No links added yet'}
-          </p>
-          <button
-            onClick={handleGenerate}
-            disabled={generating || validCount === 0}
-            className="btn-primary text-sm disabled:opacity-40 w-full sm:w-auto"
-          >
-            {generating ? (
-              <><span className="spinner" /> Working on it...</>
-            ) : (
-              <><Sparkles size={15} /> Generate shorts</>
-            )}
-          </button>
-        </div>
-      </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => setRemoveWatermarks(!removeWatermarks)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-all ${
+                  removeWatermarks
+                    ? 'bg-accent/10 border-accent/20 text-accent'
+                    : 'bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-border'
+                }`}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg>
+                Remove watermarks
+              </button>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <p className="text-xs text-text-tertiary">
+                {validCount > 0
+                  ? `${validCount} link${validCount > 1 ? 's' : ''} ready to go`
+                  : 'No links added yet'}
+              </p>
+              <button
+                onClick={handleGenerate}
+                disabled={generating || validCount === 0}
+                className="btn-primary text-sm disabled:opacity-40 w-full sm:w-auto pulse-glow"
+              >
+                <><Sparkles size={15} /> Generate shorts</>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {results.length > 0 && selectedItem && (
-        <div className="space-y-6 fade-in">
+        <div className="space-y-6 fade-in-up">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <h2 className="text-base font-semibold">Your shorts</h2>
             <span className="text-xs text-text-tertiary">{results.length} {results.length === 1 ? 'short' : 'shorts'} generated</span>
@@ -167,6 +225,7 @@ export default function CreatePage() {
                   seoTitle={selectedItem.seoTitle}
                   niche={selectedItem.niche}
                   platform={selectedItem.platform}
+                  videoUrl={selectedItem.videoUrl}
                 />
               </div>
 
@@ -174,7 +233,7 @@ export default function CreatePage() {
                 <div className="mt-4">
                   <h3 className="text-xs font-medium text-text-secondary mb-2.5">All shorts</h3>
                   <div className="flex flex-wrap gap-2">
-                    {results.map((item) => (
+                    {results.map((item, i) => (
                       <button
                         key={item.id}
                         onClick={() => setSelectedShort(item.id)}
@@ -183,6 +242,7 @@ export default function CreatePage() {
                             ? 'bg-accent/10 border-accent/20 text-accent'
                             : 'bg-transparent border-border text-text-tertiary hover:text-text-secondary hover:border-border'
                         }`}
+                        style={{ animation: `fadeIn 0.3s ease-out ${i * 0.06}s both` }}
                       >
                         <Play size={10} />
                         {item.sourceUrl.includes('instagram') ? 'IG' : item.sourceUrl.includes('tiktok') ? 'TT' : item.sourceUrl.includes('youtube') ? 'YT' : 'Reel'} #{item.shortIndex}
@@ -194,7 +254,7 @@ export default function CreatePage() {
             </div>
 
             <div className="flex-1 min-w-0 space-y-4">
-              <div className="card p-4 sm:p-5 space-y-4">
+              <div className="card p-4 sm:p-5 space-y-4 scale-in">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -273,7 +333,7 @@ export default function CreatePage() {
           </div>
 
           {Object.keys(groupedByUrl).length > 1 && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden fade-in">
               <button
                 onClick={() => setShowAllSources(!showAllSources)}
                 className="w-full p-3 sm:p-4 flex items-center justify-between hover:bg-surface-1/50 transition-colors text-left"

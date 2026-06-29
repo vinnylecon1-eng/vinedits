@@ -38,8 +38,9 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             const isActive = pathname === item.href
             return (
               <Link key={item.href} href={item.href} onClick={() => { if (window.innerWidth < 1024) onToggle() }}>
-                <span className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors cursor-pointer ${isActive ? 'bg-accent/10 text-accent font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'}`}>
-                  <Icon size={16} strokeWidth={isActive ? 2.5 : 1.5} />
+                <span className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm cursor-pointer relative ${isActive ? 'bg-accent/10 text-accent font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-surface-2'} transition-all duration-200`}>
+                  {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-accent rounded-full" />}
+                  <Icon size={16} strokeWidth={isActive ? 2.5 : 1.5} className={isActive ? 'scale-110' : ''} />
                   {item.label}
                 </span>
               </Link>

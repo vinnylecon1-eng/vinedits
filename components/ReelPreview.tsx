@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react'
+import { Play, Pause, Volume2, VolumeX, Download, Maximize2 } from 'lucide-react'
 
 interface ReelPreviewProps {
   hook: string
@@ -9,6 +9,7 @@ interface ReelPreviewProps {
   seoTitle: string
   niche: string
   platform: string
+  videoUrl?: string | null
 }
 
 const PLATFORM_COLORS: Record<string, string[]> = {
@@ -18,7 +19,8 @@ const PLATFORM_COLORS: Record<string, string[]> = {
   Facebook: ['#1877F2', '#166FE5', '#131313'],
 }
 
-export default function ReelPreview({ hook, caption, seoTitle, niche, platform }: ReelPreviewProps) {
+export default function ReelPreview({ hook, caption, seoTitle, niche, platform, videoUrl }: ReelPreviewProps) {
+  const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -56,17 +58,6 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, w, h)
 
-    const particleCount = 8
-    for (let i = 0; i < particleCount; i++) {
-      const px = ((i * 137.5 + elapsed * 0.02) % w)
-      const py = ((i * 97.3 + elapsed * 0.015) % h)
-      const size = 4 + Math.sin(elapsed * 0.003 + i) * 3
-      ctx.beginPath()
-      ctx.arc(px, py, size, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'
-      ctx.fill()
-    }
-
     if (scene === 0) {
       ctx.save()
       const fontSize = Math.min(w * 0.065, 28)
@@ -96,7 +87,6 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
       ctx.textBaseline = 'middle'
       const startY = h * 0.3
       const startAlpha = Math.min(sceneProgress * 2, 1)
-
       const bgGrad = ctx.createLinearGradient(0, startY - 60, 0, startY + lines.length * 30 + 60)
       bgGrad.addColorStop(0, 'rgba(0,0,0,0)')
       bgGrad.addColorStop(0.15, 'rgba(0,0,0,0.4)')
@@ -104,7 +94,6 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
       bgGrad.addColorStop(1, 'rgba(0,0,0,0)')
       ctx.fillStyle = bgGrad
       ctx.fillRect(0, startY - 40, w, lines.length * 30 + 80)
-
       lines.forEach((line, i) => {
         ctx.globalAlpha = Math.min(Math.max(sceneProgress * 3 - i * 0.3, 0), 1) * startAlpha
         ctx.fillStyle = '#ffffff'
@@ -118,7 +107,6 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
       ctx.font = `500 ${fontSize}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-
       const charsPerLine = 28
       const words = caption.split(' ')
       const lines: string[] = []
@@ -128,23 +116,20 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
         else current += ' ' + word
       })
       if (current.trim()) lines.push(current.trim())
-
       const visibleLines = Math.min(lines.length, Math.floor(sceneProgress * (lines.length + 2)))
-      const startY = h * 0.25
-
-      const bgGrad = ctx.createLinearGradient(0, h * 0.7, 0, h * 0.85)
-      bgGrad.addColorStop(0, 'rgba(0,0,0,0)')
-      bgGrad.addColorStop(0.2, 'rgba(0,0,0,0.6)')
-      bgGrad.addColorStop(1, 'rgba(0,0,0,0.8)')
-      ctx.fillStyle = bgGrad
+      const startY2 = h * 0.25
+      const bgGrad2 = ctx.createLinearGradient(0, h * 0.7, 0, h * 0.85)
+      bgGrad2.addColorStop(0, 'rgba(0,0,0,0)')
+      bgGrad2.addColorStop(0.2, 'rgba(0,0,0,0.6)')
+      bgGrad2.addColorStop(1, 'rgba(0,0,0,0.8)')
+      ctx.fillStyle = bgGrad2
       ctx.fillRect(0, h * 0.7, w, h * 0.3)
-
       lines.slice(0, visibleLines).forEach((line, i) => {
         const alpha = Math.min(sceneProgress * 4 - (lines.length - visibleLines + i) * 0.2, 1)
         if (alpha > 0) {
           ctx.globalAlpha = Math.max(0, alpha)
           ctx.fillStyle = '#ffffff'
-          ctx.fillText(line, w / 2, startY + i * (fontSize + 6))
+          ctx.fillText(line, w / 2, startY2 + i * (fontSize + 6))
         }
       })
       ctx.globalAlpha = 1
@@ -153,31 +138,26 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
       ctx.save()
       const pulse = 0.8 + Math.sin(elapsed * 0.005) * 0.2
       ctx.globalAlpha = pulse
-
       const grad2 = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.6)
       grad2.addColorStop(0, 'rgba(255,255,255,0.15)')
       grad2.addColorStop(1, 'rgba(255,255,255,0)')
       ctx.fillStyle = grad2
       ctx.fillRect(0, 0, w, h)
-
       const fontSize = Math.min(w * 0.08, 32)
       ctx.font = `800 ${fontSize}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = '#ffffff'
-
       const shrink = Math.max(0, 1 - sceneProgress * 0.5)
       ctx.setTransform(shrink, 0, 0, shrink, w / 2 * (1 - shrink), h / 2 * (1 - shrink))
       ctx.fillText('Follow for more', w / 2, h / 2)
       ctx.setTransform(1, 0, 0, 1, 0, 0)
-
       const subSize = Math.min(w * 0.035, 14)
       ctx.font = `500 ${subSize}px Inter, sans-serif`
       const subAlpha = Math.min(Math.max(sceneProgress * 3 - 1, 0), 1)
       ctx.globalAlpha = subAlpha
       ctx.fillStyle = 'rgba(255,255,255,0.7)'
       ctx.fillText('@vinedits', w / 2, h * 0.62)
-
       ctx.globalAlpha = 1
       ctx.restore()
     }
@@ -195,8 +175,7 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
     ctx.font = `600 ${Math.min(w * 0.03, 11)}px Inter, sans-serif`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'bottom'
-    const nicheLabel = `${niche} · ${platform}`
-    ctx.fillText(nicheLabel, 12, h - 14)
+    ctx.fillText(`${niche} \u00b7 ${platform}`, 12, h - 14)
     ctx.restore()
 
     ctx.save()
@@ -207,22 +186,7 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
     ctx.fillText(`${Math.ceil((totalDuration - elapsed) / 1000)}s`, w - 12, h - 14)
     ctx.restore()
 
-    ctx.save()
-    const barY = h - 4
-    const barH = 3
-    const barW = w - 24
-    ctx.fillStyle = 'rgba(255,255,255,0.2)'
-    ctx.beginPath()
-    ctx.roundRect(12, barY, barW, barH, 2)
-    ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,0.8)'
-    ctx.beginPath()
-    ctx.roundRect(12, barY, barW * t, barH, 2)
-    ctx.fill()
-    ctx.restore()
-
     setProgress(t)
-
     if (t < 1) {
       animRef.current = requestAnimationFrame(drawFrame)
     } else {
@@ -236,6 +200,16 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
   }, [drawFrame])
 
   const togglePlay = () => {
+    if (videoUrl && videoRef.current) {
+      if (playing) {
+        videoRef.current.pause()
+        setPlaying(false)
+      } else {
+        videoRef.current.play()
+        setPlaying(true)
+      }
+      return
+    }
     if (playing) {
       cancelAnimationFrame(animRef.current)
       setPlaying(false)
@@ -245,14 +219,33 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
     }
   }
 
+  const handleVideoEnded = () => setPlaying(false)
+
+  const handleVideoTimeUpdate = () => {
+    if (videoRef.current) {
+      const pct = videoRef.current.currentTime / (videoRef.current.duration || 1)
+      setProgress(pct)
+    }
+  }
+
+  const handleVideoPlay = () => setPlaying(true)
+  const handleVideoPause = () => setPlaying(false)
+
   const restart = useCallback(() => {
+    if (videoUrl && videoRef.current) {
+      videoRef.current.currentTime = 0
+      videoRef.current.play()
+      setPlaying(true)
+      return
+    }
     cancelAnimationFrame(animRef.current)
     setProgress(0)
     setPlaying(true)
     startAnim()
-  }, [startAnim])
+  }, [startAnim, videoUrl])
 
   useEffect(() => {
+    if (videoUrl) return
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
@@ -260,27 +253,47 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
     canvas.height = rect.height * (window.devicePixelRatio || 1)
     const ctx = canvas.getContext('2d')
     if (ctx) ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1)
-  }, [])
+  }, [videoUrl])
 
   useEffect(() => {
-    return () => cancelAnimationFrame(animRef.current)
+    return () => {
+      cancelAnimationFrame(animRef.current)
+    }
   }, [])
 
   const progressPct = Math.round(progress * 100)
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+  const videoSrc = videoUrl && authToken ? `${videoUrl}?token=${authToken}` : null
 
   return (
     <div ref={containerRef} className="flex flex-col items-center gap-3">
-      <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl" style={{ width: 280, height: 500 }}>
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full cursor-pointer"
-          style={{ width: 280, height: 500 }}
-          onClick={togglePlay}
-        />
+      <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-white/5" style={{ width: 280, height: 500 }}>
+        {videoSrc ? (
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover cursor-pointer"
+            src={videoSrc}
+            muted={muted}
+            playsInline
+            preload="auto"
+            onClick={togglePlay}
+            onEnded={handleVideoEnded}
+            onTimeUpdate={handleVideoTimeUpdate}
+            onPlay={handleVideoPlay}
+            onPause={handleVideoPause}
+          />
+        ) : (
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full cursor-pointer"
+            style={{ width: 280, height: 500 }}
+            onClick={togglePlay}
+          />
+        )}
 
         {!playing && progress === 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm transition-opacity" onClick={togglePlay}>
-            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/30 transition-all hover:scale-105">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-md flex items-center justify-center hover:from-white/40 hover:to-white/20 transition-all hover:scale-105 hover:shadow-lg">
               <Play size={28} className="text-white ml-1" />
             </div>
           </div>
@@ -295,12 +308,20 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
         )}
 
         <div className="absolute top-3 left-3">
-          <span className="text-[10px] font-semibold text-white/90 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
-            {niche}
-          </span>
+          <span className="text-[10px] font-semibold text-white/90 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">{niche}</span>
         </div>
 
         <div className="absolute top-3 right-3 flex gap-1.5">
+          {videoSrc && (
+            <a
+              href={videoSrc}
+              download
+              onClick={(e) => e.stopPropagation()}
+              className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors"
+            >
+              <Download size={12} className="text-white/80" />
+            </a>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); setMuted(!muted) }}
             className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors"
@@ -314,13 +335,13 @@ export default function ReelPreview({ hook, caption, seoTitle, niche, platform }
             <div className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
               <div className="h-full bg-white/80 rounded-full transition-all duration-200" style={{ width: `${progressPct}%` }} />
             </div>
-            <span className="text-[10px] text-white/70 font-mono w-8 text-right">{Math.ceil((1 - progress) * totalDuration / 1000)}s</span>
+            {!videoSrc && <span className="text-[10px] text-white/70 font-mono w-8 text-right">{Math.ceil((1 - progress) * totalDuration / 1000)}s</span>}
           </div>
         )}
       </div>
 
       {!playing && progress > 0 && (
-        <button onClick={restart} className="text-xs text-text-secondary hover:text-text-primary transition-colors">
+        <button onClick={restart} className="text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
           Replay
         </button>
       )}

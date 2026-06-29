@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { generateShortsForUrl, generateOptimalSchedule } from '@/lib/generate'
+import { downloadVideo, splitIntoClips, cleanupVideo, getClipPath } from '@/lib/video'
+import fs from 'fs'
+import path from 'path'
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,13 +34,47 @@ export async function POST(req: NextRequest) {
       const url = validUrls[i]
       const dur = (durations && durations[i]) || 15
       const removeWm = !!removeWatermarks
-      const shorts = generateShortsForUrl(url, dur, removeWm)
+
+      let sourceVideoPath: string | null = null
+      try {
+        sourceVideoPath = await downloadVideo(url)
+      } catch (err: any) {
+        console.warn(`Video download failed for ${url}: ${err.message}`)
+      }
+
+      const shorts = await generateShortsForUrl(url, dur, removeWm)
+
+      const clipsDir = path.join(process.cwd(), 'videos', 'clips')
+      let clipFiles: string[] = []
+      if (sourceVideoPath) {
+        const result = await splitIntoClips(sourceVideoPath, dur, removeWm)
+        clipFiles = result.clips
+
+        for (let ci = 0; ci < Math.min(clipFiles.length, shorts.length); ci++) {
+          const shortId = Math.random().toString(36).substring(2, 15)
+          shorts[ci]._tempId = shortId
+          const destPath = path.join(clipsDir, `${shortId}.mp4`)
+          try {
+            if (fs.existsSync(clipFiles[ci])) {
+              fs.renameSync(clipFiles[ci], destPath)
+            }
+          } catch {}
+        }
+
+        if (sourceVideoPath) {
+          cleanupVideo(sourceVideoPath).catch(() => {})
+        }
+      }
 
       for (const short of shorts) {
-        const id = Math.random().toString(36).substring(2, 15)
+        const id = short._tempId || Math.random().toString(36).substring(2, 15)
+        delete short._tempId
+
         const item = {
           id,
           ...short,
+          hasVideo: clipFiles.length > 0,
+          videoUrl: clipFiles.length > 0 ? `/api/videos/${id}` : null,
           status: 'scheduled' as const,
           scheduledAt: null,
           createdAt: new Date().toISOString(),
