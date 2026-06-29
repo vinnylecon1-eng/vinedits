@@ -329,6 +329,6 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ---
 
-**Built with ❤️ by Manus AI**
+**Built with ❤️ by vinny lecon**
 
 **Last Updated:** June 2026 | **Version:** 2.0.0
