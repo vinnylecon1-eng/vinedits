@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 overflow-auto"><div className="fade-in" key={pathname}>{children}</div></main>
+        <main className="flex-1 overflow-auto"><div className="page-enter" key={pathname}>{children}</div></main>
       </div>
     </div>
   )

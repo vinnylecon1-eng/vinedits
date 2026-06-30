@@ -24,15 +24,22 @@ export default function ContentPage() {
 
   useEffect(() => { fetchContent() }, [])
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+
   const handleDelete = async (id: string) => {
+    if (confirmId !== id) { setConfirmId(id); setTimeout(() => setConfirmId(null), 3000); return }
+    setDeletingId(id)
     try {
-      await fetch(`/api/content/${id}`, {
+      const res = await fetch(`/api/content/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
       })
+      if (!res.ok) throw new Error()
       setItems(items.filter(i => i.id !== id))
       toast.success('Content deleted')
     } catch { toast.error('Failed to delete') }
+    finally { setDeletingId(null); setConfirmId(null) }
   }
 
   const filtered = items.filter(i =>
@@ -133,8 +140,16 @@ export default function ContentPage() {
                 <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-surface-2 rounded-lg transition-colors">
                   <ExternalLink size={14} className="text-text-tertiary" />
                 </a>
-                <button onClick={() => handleDelete(item.id)} className="p-1.5 hover:bg-surface-2 rounded-lg transition-colors group">
-                  <Trash2 size={14} className="text-text-tertiary group-hover:text-error transition-colors" />
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  disabled={deletingId === item.id}
+                  className={`p-1.5 rounded-lg transition-all group ${confirmId === item.id ? 'bg-error/10' : 'hover:bg-surface-2'}`}
+                >
+                  {deletingId === item.id ? (
+                    <span className="spinner !w-3.5 !h-3.5 block" />
+                  ) : (
+                    <Trash2 size={14} className={`transition-colors ${confirmId === item.id ? 'text-error' : 'text-text-tertiary group-hover:text-error'}`} />
+                  )}
                 </button>
               </div>
             </div>

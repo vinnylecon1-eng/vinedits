@@ -81,10 +81,10 @@ export default function Landing() {
       if (!res.ok) throw new Error(data.error)
       login(data.token, data.user)
       toast.success(isLogin ? 'Good to see you again' : 'Welcome aboard')
+      await new Promise(r => setTimeout(r, 400))
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message)
-    } finally {
       setLoading(false)
     }
   }
@@ -121,8 +121,8 @@ export default function Landing() {
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-5 leading-[1.1]">
               Turn any video into
             </h1>
-            <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight mb-5 leading-[1.1] [text-shadow:0_0_40px_rgba(79,140,255,0.5)]">
-              <span className="animate-gradient bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(79,140,255,0.6)]">viral shorts</span>
+            <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight mb-5 leading-[1.1] text-white [text-shadow:0_0_30px_rgba(255,255,255,0.3)]">
+              viral shorts
             </h2>
             <p className="text-text-secondary text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
               Drop your links, pick your niche, and let the magic happen. Titles, hooks, captions, and hashtags — all auto-generated and scheduled at the best times.
