@@ -8,7 +8,7 @@ import ReelPreview from '@/components/ReelPreview'
 
 interface UrlEntry {
   url: string
-  duration: number
+  interval: number
 }
 
 const genSteps = [
@@ -49,7 +49,7 @@ function GenerationProgress({ step }: { step: number }) {
 }
 
 export default function CreatePage() {
-  const [entries, setEntries] = useState<UrlEntry[]>([{ url: '', duration: 15 }])
+  const [entries, setEntries] = useState<UrlEntry[]>([{ url: '', interval: 30 }])
   const [removeWatermarks, setRemoveWatermarks] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [genStep, setGenStep] = useState(0)
@@ -69,10 +69,10 @@ export default function CreatePage() {
     return () => { if (genTimerRef.current) clearInterval(genTimerRef.current) }
   }, [generating])
 
-  const addUrl = () => { if (entries.length < 5) setEntries([...entries, { url: '', duration: 15 }]) }
-  const removeUrl = (i: number) => { const e = entries.filter((_, idx) => idx !== i); setEntries(e.length ? e : [{ url: '', duration: 15 }]) }
+  const addUrl = () => { if (entries.length < 5) setEntries([...entries, { url: '', interval: 30 }]) }
+  const removeUrl = (i: number) => { const e = entries.filter((_, idx) => idx !== i); setEntries(e.length ? e : [{ url: '', interval: 30 }]) }
   const updateUrl = (i: number, v: string) => { const e = [...entries]; e[i] = { ...e[i], url: v }; setEntries(e) }
-  const updateDuration = (i: number, v: number) => { const e = [...entries]; e[i] = { ...e[i], duration: Math.max(1, Math.min(1440, v)) }; setEntries(e) }
+  const updateInterval = (i: number, v: number) => { const e = [...entries]; e[i] = { ...e[i], interval: Math.max(10, Math.min(300, v)) }; setEntries(e) }
 
   const validCount = entries.filter(e => e.url.trim().length > 0).length
 
@@ -91,7 +91,7 @@ export default function CreatePage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
         body: JSON.stringify({
           urls: filled.map(e => e.url),
-          durations: filled.map(e => e.duration),
+          intervals: filled.map(e => e.interval),
           removeWatermarks,
         }),
       })
@@ -159,13 +159,13 @@ export default function CreatePage() {
                   <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto sm:ml-0">
                     <input
                       type="number"
-                      value={entry.duration}
-                      onChange={(e) => updateDuration(i, parseInt(e.target.value) || 1)}
-                      min={1}
-                      max={1440}
+                      value={entry.interval}
+                      onChange={(e) => updateInterval(i, parseInt(e.target.value) || 30)}
+                      min={10}
+                      max={300}
                       className="input w-16 text-xs text-center"
                     />
-                    <span className="text-[11px] text-text-tertiary w-10">min</span>
+                    <span className="text-[11px] text-text-tertiary w-10">sec</span>
                   </div>
                   {entries.length > 1 && (
                     <button onClick={() => removeUrl(i)} className="p-1.5 hover:bg-surface-2 rounded transition-colors self-end sm:self-center">

@@ -73,8 +73,13 @@ body {
 .input:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent), 0 0 16px color-mix(in srgb, var(--color-accent) 10%, transparent);
+  transform: translateY(-1px);
 }
+.input:focus::placeholder { color: transparent; }
+.input.filled:not(:focus) { border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border)); }
+.input.error { border-color: var(--color-error); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 20%, transparent); }
+.input.success { border-color: var(--color-success); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 20%, transparent); }
 
 .btn-primary {
   display: inline-flex;

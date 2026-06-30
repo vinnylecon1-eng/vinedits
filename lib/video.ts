@@ -83,23 +83,21 @@ export async function getVideoDuration(videoPath: string): Promise<number> {
 
 export async function splitIntoClips(
   videoPath: string,
-  _totalDurationMinutes: number,
-  removeWatermark: boolean
+  shortCount: number,
+  intervalSec: number,
+  removeWatermark: boolean = false
 ): Promise<{ clips: string[]; count: number }> {
   ensureDirs()
-  const clipDuration = 30
-  const sourceDuration = await getVideoDuration(videoPath)
-  const targetClips = Math.max(1, Math.ceil(sourceDuration / clipDuration))
   const clips: string[] = []
 
-  for (let i = 0; i < targetClips; i++) {
-    const startTime = i * clipDuration
+  for (let i = 0; i < shortCount; i++) {
+    const startTime = i * intervalSec
     const outputPath = path.join(CLIPS_DIR, `clip_${Date.now()}_${i}.mp4`)
 
     const args = [
       '-ss', startTime.toString(),
       '-i', videoPath,
-      '-t', clipDuration.toString(),
+      '-t', intervalSec.toString(),
       '-c:v', 'libx264',
       '-preset', 'fast',
       '-c:a', 'aac',

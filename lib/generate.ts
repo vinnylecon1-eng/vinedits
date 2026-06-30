@@ -410,10 +410,9 @@ function detectNiche(url: string): string {
   return pick(niches).name
 }
 
-function generateFallbackShortsForUrl(url: string, durationMinutes: number, removeWatermark: boolean) {
+function generateFallbackShortsForUrl(url: string, shortCount: number, removeWatermark: boolean, intervalSec: number = 30) {
   const platform = extractDomain(url)
   const niche = detectNiche(url)
-  const shortCount = Math.max(1, Math.floor(durationMinutes / 15))
   const shorts: any[] = []
 
   const actions = nicheActions[niche] || ['get better results', 'make progress', 'level up']
@@ -477,8 +476,8 @@ function generateFallbackShortsForUrl(url: string, durationMinutes: number, remo
       caption,
       hashtags,
       thumbnailIdea,
-      clipDuration: pick(shortDurations),
-      sourceDuration: durationMinutes,
+      clipDuration: `${intervalSec} seconds`,
+      sourceDuration: shortCount * intervalSec,
       totalShorts: shortCount,
       shortIndex: i + 1,
       watermarkRemoved: removeWatermark,
@@ -488,7 +487,7 @@ function generateFallbackShortsForUrl(url: string, durationMinutes: number, remo
   return shorts
 }
 
-export async function generateShortsForUrl(url: string, durationMinutes: number, removeWatermark: boolean) {
+export async function generateShortsForUrl(url: string, shortCount: number, removeWatermark: boolean, intervalSec: number = 30) {
   const platform = extractDomain(url)
 
   let aiAvailable = false
@@ -499,11 +498,10 @@ export async function generateShortsForUrl(url: string, durationMinutes: number,
   const hasOpenAI = !!process.env.OPENAI_API_KEY
 
   if (!aiAvailable && !hasOpenAI) {
-    return generateFallbackShortsForUrl(url, durationMinutes, removeWatermark)
+    return generateFallbackShortsForUrl(url, shortCount, removeWatermark, intervalSec)
   }
 
   const niche = detectNiche(url)
-  const shortCount = Math.max(1, Math.floor(durationMinutes / 15))
   const shorts: any[] = []
 
   for (let i = 0; i < shortCount; i++) {
@@ -519,14 +517,14 @@ export async function generateShortsForUrl(url: string, durationMinutes: number,
         caption: ai.caption,
         hashtags: ai.hashtags,
         thumbnailIdea: ai.thumbnailIdea,
-        clipDuration: pick(shortDurations),
-        sourceDuration: durationMinutes,
+        clipDuration: `${intervalSec} seconds`,
+        sourceDuration: shortCount * intervalSec,
         totalShorts: shortCount,
         shortIndex: i + 1,
         watermarkRemoved: removeWatermark,
       })
     } catch {
-      const fallback = generateFallbackShortsForUrl(url, durationMinutes, removeWatermark)
+      const fallback = generateFallbackShortsForUrl(url, shortCount, removeWatermark, intervalSec)
       shorts.push(fallback[i])
     }
   }
