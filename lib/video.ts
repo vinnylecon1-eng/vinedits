@@ -1,15 +1,45 @@
-import { execFile } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs'
 
 const execFileAsync = promisify(execFile)
 
-const YT_DLP = path.join(process.cwd(), 'yt-dlp.exe')
-const FFMPEG = path.join(process.cwd(), 'ffmpeg.exe')
 const VIDEOS_DIR = path.join(process.cwd(), 'videos')
 const DOWNLOADS_DIR = path.join(VIDEOS_DIR, 'downloads')
 const CLIPS_DIR = path.join(VIDEOS_DIR, 'clips')
+
+function tryResolve(...candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate
+      const resolved = execFileSync('where', [candidate], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      const first = resolved.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0]
+      if (first && fs.existsSync(first)) return first
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
+function resolveFfmpeg(): string | null {
+  const npmBinary = path.join(process.cwd(), 'node_modules', '@ffmpeg-installer', 'win32-x64', 'ffmpeg.exe')
+  return tryResolve(npmBinary, path.join(process.cwd(), 'ffmpeg.exe'), 'ffmpeg.exe', 'ffmpeg')
+}
+
+function resolveYtDlp(): string | null {
+  return tryResolve(path.join(process.cwd(), 'yt-dlp.exe'), 'yt-dlp.exe', 'yt-dlp')
+}
+
+export function getVideoTools(): { ffmpeg: string | null; ytDlp: string | null } {
+  return { ffmpeg: resolveFfmpeg(), ytDlp: resolveYtDlp() }
+}
+
+export function videoToolsAvailable(): boolean {
+  const { ffmpeg, ytDlp } = getVideoTools()
+  return !!(ffmpeg && ytDlp)
+}
 
 function ensureDirs() {
   if (!fs.existsSync(VIDEOS_DIR)) fs.mkdirSync(VIDEOS_DIR, { recursive: true })
@@ -25,31 +55,81 @@ export function clipExists(shortId: string): boolean {
   return fs.existsSync(getClipPath(shortId))
 }
 
+export interface VideoMetadata {
+  title: string
+  description: string
+  uploader: string
+  duration: number
+  id?: string
+}
+
+export async function getVideoMetadata(url: string): Promise<VideoMetadata | null> {
+  const { ytDlp } = getVideoTools()
+  if (!ytDlp) return null
+
+  try {
+    const { stdout } = await execFileAsync(ytDlp, [
+      url,
+      '--dump-json',
+      '--no-playlist',
+      '--skip-download',
+      '--no-warnings',
+      '--quiet',
+    ], { timeout: 60000, maxBuffer: 20 * 1024 * 1024 })
+
+    const raw = stdout.trim()
+    const line = raw.split(/\r?\n/).filter((l) => l.trim()).pop() || ''
+    if (!line) return null
+    const data = JSON.parse(line)
+    return {
+      title: String(data.title || ''),
+      description: String(data.description || ''),
+      uploader: String(data.uploader || data.channel || data.uploader_id || ''),
+      duration: typeof data.duration === 'number' ? data.duration : 0,
+      id: data.id ? String(data.id) : undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function downloadVideo(url: string): Promise<string> {
   ensureDirs()
+
+  const { ffmpeg, ytDlp } = getVideoTools()
+  if (!ytDlp) throw new Error('yt-dlp is not installed. Download yt-dlp.exe into the project root to enable video downloads.')
+  if (!ffmpeg) throw new Error('ffmpeg is not available')
+
+  for (const file of fs.readdirSync(DOWNLOADS_DIR)) {
+    try { fs.unlinkSync(path.join(DOWNLOADS_DIR, file)) } catch {}
+  }
+
   const outputTemplate = path.join(DOWNLOADS_DIR, '%(id)s.%(ext)s')
 
   try {
-    await execFileAsync(YT_DLP, [
+    await execFileAsync(ytDlp, [
       url, '-o', outputTemplate,
       '--no-playlist',
       '--max-filesize', '200M',
+      '--format', 'bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720][ext=mp4]',
+      '--merge-output-format', 'mp4',
+      '--ffmpeg-location', path.dirname(ffmpeg),
       '--quiet', '--no-warnings',
-    ], { timeout: 120000, maxBuffer: 10 * 1024 * 1024 })
+    ], { timeout: 300000, maxBuffer: 10 * 1024 * 1024 })
 
     const files = fs.readdirSync(DOWNLOADS_DIR)
     const latest = files
       .filter(f => f.endsWith('.mp4') || f.endsWith('.webm') || f.endsWith('.mkv'))
-      .sort()
-      .pop()
+      .map((f) => path.join(DOWNLOADS_DIR, f))
+      .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0]
 
     if (!latest) throw new Error('No video file found after download')
 
-    const videoPath = path.join(DOWNLOADS_DIR, latest)
+    const videoPath = latest
 
-    if (!latest.endsWith('.mp4')) {
+    if (!videoPath.endsWith('.mp4')) {
       const mp4Path = videoPath.replace(/\.\w+$/, '.mp4')
-      await execFileAsync(FFMPEG, [
+      await execFileAsync(ffmpeg, [
         '-i', videoPath,
         '-c:v', 'libx264',
         '-c:a', 'aac',
@@ -66,19 +146,23 @@ export async function downloadVideo(url: string): Promise<string> {
 }
 
 export async function getVideoDuration(videoPath: string): Promise<number> {
-  try {
-    await execFileAsync(FFMPEG, ['-i', videoPath, '-f', 'null', '-'], { timeout: 30000 })
-    return 0
-  } catch (err: any) {
-    const match = err.stderr?.match(/Duration: (\d+):(\d+):(\d+)\.(\d+)/)
-    if (match) {
-      const hours = parseInt(match[1])
-      const minutes = parseInt(match[2])
-      const seconds = parseInt(match[3])
-      return hours * 3600 + minutes * 60 + seconds
-    }
-    return 0
-  }
+  const { ffmpeg } = getVideoTools()
+  if (!ffmpeg) return 0
+
+  return new Promise((resolve) => {
+    execFile(ffmpeg, ['-i', videoPath], { timeout: 30000 }, (err, stdout, stderr) => {
+      const raw = stderr || (err && (err as any).stderr) || ''
+      const match = raw.match(/Duration: (\d+):(\d+):(\d+)\.(\d+)/)
+      if (match) {
+        const hours = parseInt(match[1])
+        const minutes = parseInt(match[2])
+        const seconds = parseInt(match[3])
+        resolve(hours * 3600 + minutes * 60 + seconds)
+      } else {
+        resolve(0)
+      }
+    })
+  })
 }
 
 export async function splitIntoClips(
@@ -88,6 +172,9 @@ export async function splitIntoClips(
   removeWatermark: boolean = false
 ): Promise<{ clips: string[]; count: number }> {
   ensureDirs()
+  const { ffmpeg } = getVideoTools()
+  if (!ffmpeg) return { clips: [], count: 0 }
+
   const clips: string[] = []
 
   for (let i = 0; i < shortCount; i++) {
@@ -110,7 +197,7 @@ export async function splitIntoClips(
     }
 
     try {
-      await execFileAsync(FFMPEG, args, { timeout: 120000 })
+      await execFileAsync(ffmpeg, args, { timeout: 120000 })
       if (fs.existsSync(outputPath)) {
         clips.push(outputPath)
       }

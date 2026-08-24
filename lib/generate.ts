@@ -400,8 +400,11 @@ export function extractDomain(url: string): string {
   }
 }
 
-function detectNiche(url: string): string {
-  const lower = url.toLowerCase()
+function detectNiche(text: string): string {
+  const lower = text.toLowerCase()
+  if (/(official video|official audio|music video|lyrics|official lyrics|audio|song|album|performed by)/.test(lower)) {
+    return 'Entertainment'
+  }
   for (const niche of niches) {
     for (const kw of niche.keywords) {
       if (lower.includes(kw)) return niche.name
@@ -410,9 +413,11 @@ function detectNiche(url: string): string {
   return pick(niches).name
 }
 
-function generateFallbackShortsForUrl(url: string, shortCount: number, removeWatermark: boolean, intervalSec: number = 30) {
+function generateFallbackShortsForUrl(url: string, shortCount: number, removeWatermark: boolean, intervalSec: number = 30, meta?: { title?: string; description?: string; uploader?: string; duration?: number }) {
   const platform = extractDomain(url)
-  const niche = detectNiche(url)
+  const sourceText = [url, meta?.title, meta?.description, meta?.uploader].filter(Boolean).join(' ')
+  const niche = detectNiche(sourceText)
+  const videoTitle = (meta?.title || '').trim()
   const shorts: any[] = []
 
   const actions = nicheActions[niche] || ['get better results', 'make progress', 'level up']
@@ -428,20 +433,31 @@ function generateFallbackShortsForUrl(url: string, shortCount: number, removeWat
     const nums = ['3', '5', '7', '10', '12']
     const methods = ['The Simple System', 'The 3-Step Framework', 'The Proven Method', 'The Expert Approach', 'The Unconventional Way', 'The Science-Backed Method']
 
+    const titleShort = videoTitle.slice(0, 60)
+
     const tmpl = seoTitleTemplates[i % seoTitleTemplates.length]
-    const seoTitle = tmpl
-      .replace('[action]', action)
-      .replace('[timeframe]', pick(timeframes))
-      .replace('[number]', pick(nums))
-      .replace('[topic]', niche)
-      .replace('[method]', pick(methods))
-      .replace('[result]', result)
-      .replace('[badHabit]', badHabit)
+    const seoTitle = titleShort
+      ? `${titleShort.slice(0, 45)} — ${pick(['Full Breakdown', 'Everything You Need to Know', 'What Actually Happened', 'The Real Story', 'Best Moments'])}, Short #${i + 1}`
+      : tmpl
+          .replace('[action]', action)
+          .replace('[timeframe]', pick(timeframes))
+          .replace('[number]', pick(nums))
+          .replace('[topic]', niche)
+          .replace('[method]', pick(methods))
+          .replace('[result]', result)
+          .replace('[badHabit]', badHabit)
 
-    const hooks = pickN(nicheHooksPool, 3)
+    const titleHooks = titleShort
+      ? [`The truth about "${titleShort}"`, `Why "${titleShort}" matters`, `Everything about "${titleShort}" in 60 seconds`]
+      : []
+    const hooks = (titleHooks.length ? [titleHooks[i % titleHooks.length], ...pickN(nicheHooksPool, 2)] : pickN(nicheHooksPool, 3)).slice(0, 3)
 
-    const description = pick(descriptionTemplates)
-    const caption = pick(captionTemplates)
+    const description = titleShort
+      ? `This clip breaks down "${titleShort}". ${pick(descriptionTemplates)}`
+      : pick(descriptionTemplates)
+    const caption = titleShort
+      ? `${pick(captionTemplates)} #${titleShort.toLowerCase().replace(/[^a-z0-9]+/g, '')}`
+      : pick(captionTemplates)
 
     const platformTag = `#${platform.toLowerCase()}`
     const nicheTag = `#${niche.toLowerCase().replace(/\s+/g, '')}`
@@ -487,7 +503,13 @@ function generateFallbackShortsForUrl(url: string, shortCount: number, removeWat
   return shorts
 }
 
-export async function generateShortsForUrl(url: string, shortCount: number, removeWatermark: boolean, intervalSec: number = 30) {
+export async function generateShortsForUrl(
+  url: string,
+  shortCount: number,
+  removeWatermark: boolean,
+  intervalSec: number = 30,
+  meta?: { title?: string; description?: string; uploader?: string; duration?: number }
+) {
   const platform = extractDomain(url)
 
   let aiAvailable = false
@@ -498,15 +520,16 @@ export async function generateShortsForUrl(url: string, shortCount: number, remo
   const hasOpenAI = !!process.env.OPENAI_API_KEY
 
   if (!aiAvailable && !hasOpenAI) {
-    return generateFallbackShortsForUrl(url, shortCount, removeWatermark, intervalSec)
+    return generateFallbackShortsForUrl(url, shortCount, removeWatermark, intervalSec, meta)
   }
 
-  const niche = detectNiche(url)
+  const sourceText = [url, meta?.title, meta?.description, meta?.uploader].filter(Boolean).join(' ')
+  const niche = detectNiche(sourceText)
   const shorts: any[] = []
 
   for (let i = 0; i < shortCount; i++) {
     try {
-      const ai = await generateShortContent(url, platform, niche, i + 1, shortCount)
+      const ai = await generateShortContent(url, platform, niche, i + 1, shortCount, meta)
       shorts.push({
         sourceUrl: url,
         platform,
@@ -524,7 +547,7 @@ export async function generateShortsForUrl(url: string, shortCount: number, remo
         watermarkRemoved: removeWatermark,
       })
     } catch {
-      const fallback = generateFallbackShortsForUrl(url, shortCount, removeWatermark, intervalSec)
+      const fallback = generateFallbackShortsForUrl(url, shortCount, removeWatermark, intervalSec, meta)
       shorts.push(fallback[i])
     }
   }

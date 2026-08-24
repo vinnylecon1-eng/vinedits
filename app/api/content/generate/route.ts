@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateShortsForUrl, generateOptimalSchedule } from '@/lib/generate'
-import { downloadVideo, splitIntoClips, cleanupVideo } from '@/lib/video'
+import { downloadVideo, splitIntoClips, cleanupVideo, videoToolsAvailable, getVideoMetadata } from '@/lib/video'
 import fs from 'fs'
 import path from 'path'
 
@@ -28,8 +28,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No valid URLs provided' }, { status: 400 })
     }
 
+    const toolsAvailable = videoToolsAvailable()
+
     const allItems: any[] = []
     const allScheduleEntries: any[] = []
+    const warnings: string[] = []
 
     for (let i = 0; i < validUrls.length; i++) {
       const url = validUrls[i]
@@ -38,62 +41,89 @@ export async function POST(req: NextRequest) {
 
       let sourceVideoPath: string | null = null
       let sourceDuration = 0
-      try {
-        sourceVideoPath = await downloadVideo(url)
-      } catch (err: any) {
-        console.warn(`Video download failed for ${url}: ${err.message}`)
-      }
-
-      if (!sourceVideoPath) {
-        return NextResponse.json({ error: `Failed to download video from ${url}` }, { status: 400 })
-      }
-
-      sourceDuration = await (await import('@/lib/video')).getVideoDuration(sourceVideoPath)
-      const maxShorts = Math.min(6, Math.floor(sourceDuration / intervalSec))
-      const shortCount = Math.max(1, maxShorts)
-
-      const shorts = await generateShortsForUrl(url, shortCount, removeWm, intervalSec)
-
-      const clipsDir = path.join(process.cwd(), 'videos', 'clips')
       let clipFiles: string[] = []
-      const result = await splitIntoClips(sourceVideoPath, shortCount, intervalSec, removeWm)
-      clipFiles = result.clips
 
-      for (let ci = 0; ci < Math.min(clipFiles.length, shorts.length); ci++) {
-        const shortId = Math.random().toString(36).substring(2, 15)
-        shorts[ci]._tempId = shortId
-        const destPath = path.join(clipsDir, `${shortId}.mp4`)
+      const meta = await getVideoMetadata(url)
+
+      if (!toolsAvailable) {
+        warnings.push(`Video processing tools are not installed, generated metadata only for ${url}`)
+      } else {
         try {
-          if (fs.existsSync(clipFiles[ci])) {
-            fs.renameSync(clipFiles[ci], destPath)
-          }
-        } catch {}
+          sourceVideoPath = await downloadVideo(url)
+        } catch (err: any) {
+          warnings.push(`Could not download ${url}: ${err.message}. Generated metadata only.`)
+        }
       }
 
       if (sourceVideoPath) {
+        sourceDuration = await (await import('@/lib/video')).getVideoDuration(sourceVideoPath)
+        const maxShorts = Math.min(6, Math.floor(sourceDuration / intervalSec))
+        const shortCount = Math.max(1, maxShorts)
+
+        const shorts = await generateShortsForUrl(url, shortCount, removeWm, intervalSec, meta || undefined)
+
+        const clipsDir = path.join(process.cwd(), 'videos', 'clips')
+        const result = await splitIntoClips(sourceVideoPath, shortCount, intervalSec, removeWm)
+        clipFiles = result.clips
+
+        for (let ci = 0; ci < Math.min(clipFiles.length, shorts.length); ci++) {
+          const shortId = Math.random().toString(36).substring(2, 15)
+          shorts[ci]._tempId = shortId
+          const destPath = path.join(clipsDir, `${shortId}.mp4`)
+          try {
+            if (fs.existsSync(clipFiles[ci])) {
+              fs.renameSync(clipFiles[ci], destPath)
+            }
+          } catch {}
+        }
+
         cleanupVideo(sourceVideoPath).catch(() => {})
-      }
 
-      for (const short of shorts) {
-        const id = short._tempId || Math.random().toString(36).substring(2, 15)
-        delete short._tempId
+        for (const short of shorts) {
+          const id = short._tempId || Math.random().toString(36).substring(2, 15)
+          delete short._tempId
 
-        const created = await prisma.generatedContent.create({
-          data: {
-            id,
-            userId: user.id,
-            ...short,
-            hooks: JSON.stringify(short.hooks),
-            hashtags: JSON.stringify(short.hashtags),
-            hasVideo: clipFiles.length > 0,
-            videoUrl: clipFiles.length > 0 ? `/api/videos/${id}` : null,
-            status: 'scheduled',
-            scheduledAt: null,
-          },
-        })
+          const created = await prisma.generatedContent.create({
+            data: {
+              id,
+              userId: user.id,
+              ...short,
+              hooks: JSON.stringify(short.hooks),
+              hashtags: JSON.stringify(short.hashtags),
+              hasVideo: clipFiles.length > 0,
+              videoUrl: clipFiles.length > 0 ? `/api/videos/${id}` : null,
+              status: 'scheduled',
+              scheduledAt: null,
+            },
+          })
 
-        const item = { ...created, hooks: JSON.parse(created.hooks), hashtags: JSON.parse(created.hashtags), createdAt: created.createdAt.toISOString(), scheduledAt: created.scheduledAt }
-        allItems.push(item)
+          const item = { ...created, hooks: JSON.parse(created.hooks), hashtags: JSON.parse(created.hashtags), createdAt: created.createdAt.toISOString(), scheduledAt: created.scheduledAt }
+          allItems.push(item)
+        }
+      } else {
+        const shortCount = 3
+        const shorts = await generateShortsForUrl(url, shortCount, removeWm, intervalSec, meta || undefined)
+
+        for (const short of shorts) {
+          const id = Math.random().toString(36).substring(2, 15)
+
+          const created = await prisma.generatedContent.create({
+            data: {
+              id,
+              userId: user.id,
+              ...short,
+              hooks: JSON.stringify(short.hooks),
+              hashtags: JSON.stringify(short.hashtags),
+              hasVideo: false,
+              videoUrl: null,
+              status: 'scheduled',
+              scheduledAt: null,
+            },
+          })
+
+          const item = { ...created, hooks: JSON.parse(created.hooks), hashtags: JSON.parse(created.hashtags), createdAt: created.createdAt.toISOString(), scheduledAt: created.scheduledAt }
+          allItems.push(item)
+        }
       }
     }
 
@@ -126,6 +156,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: `${allItems.length} shorts generated and auto-scheduled`,
       items: allItems,
+      warnings,
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Generation failed' }, { status: 500 })

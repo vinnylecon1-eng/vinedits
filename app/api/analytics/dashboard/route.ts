@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   try {
     const auth = req.headers.get('authorization')
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    verifyToken(auth.split(' ')[1])
+    const decoded = verifyToken(auth.split(' ')[1])
 
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     const daily = days.map((date) => ({
@@ -18,9 +18,10 @@ export async function GET(req: NextRequest) {
       saves: Math.floor(Math.random() * 400) + 20,
     }))
 
-    const contentCount = await prisma.generatedContent.count()
-    const postsCount = await prisma.scheduledPost.count()
+    const contentCount = await prisma.generatedContent.count({ where: { userId: decoded.id } })
+    const postsCount = await prisma.scheduledPost.count({ where: { userId: decoded.id } })
     const topContent = await prisma.generatedContent.findMany({
+      where: { userId: decoded.id },
       orderBy: { createdAt: 'desc' },
       take: 5,
     })
