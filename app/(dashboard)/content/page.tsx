@@ -136,10 +136,25 @@ export default function ContentPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-0.5 flex-shrink-0">
+<div className="flex items-center gap-0.5 flex-shrink-0">
                 <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-surface-2 rounded-lg transition-colors">
                   <ExternalLink size={14} className="text-text-tertiary" />
                 </a>
+                <button
+                  onClick={() => {
+                    const url = item.videoUrl ?? ''
+                    const token = localStorage.getItem('auth_token')
+                    const fullUrl = token ? `${url}?token=${token}` : url
+                    window.open(fullUrl, '_blank')
+                  }}
+                  disabled={!item.videoUrl}
+                  className={`p-1.5 rounded-lg transition-all group ${confirmId === item.id ? 'bg-error/10' : 'hover:bg-surface-2'} ${!item.videoUrl ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Watch generated video"
+                >
+                  <Play size={14} className="text-success" />
+                </button>
+              </div>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
                 <button
                   onClick={() => handleDelete(item.id)}
                   disabled={deletingId === item.id}
